@@ -70,8 +70,8 @@ yp = btc.iloc[:-1, -2:-1].values
 # %%
 # Splitting the dataset into the Training set and Test set
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 0)
-Xp_train, Xp_test, yp_train, yp_test = train_test_split(X, yp, test_size = 0.2, random_state = 0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 123)
+Xp_train, Xp_test, yp_train, yp_test = train_test_split(X, yp, test_size = 0.2, random_state = 123)
 
 # %%
 
@@ -85,15 +85,32 @@ Xp_train, Xp_test, yp_train, yp_test = train_test_split(X, yp, test_size = 0.2, 
 btc.columns=btc.columns.str.strip().str.lower().str.replace('(','').str.replace('U','').str.replace('S','').str.replace('D','').str.replace(')','')
 
 btc.head()
+# xbtc = btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses']]
+# # print(xbtc.head())
+# ybtc = btc['priceusd']
+# xbtcs = pd.DataFrame( scale(xbtc), columns=xbtc.columns )
+
+btccopy = pd.DataFrame(scale(btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses',
+'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty', 'mediantxvalueusd', 'blocksize']]), columns=('txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses',
+'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty', 'mediantxvalueusd', 'blocksize'))
+btccopy.head()
 #%%
 # Linear Regression
+## Full Model
 from statsmodels.formula.api import ols
 
-modelPrice = ols(formula = 'priceusd ~ txvolumeusd + adjustedtxvolumeusd + txcount + generatedcoins + fees + activeaddresses + averagedifficulty + mediantxvalueusd + blocksize', data=btc).fit()
+modelPrice = ols(formula = 'ybtc ~ txvolumeusd + adjustedtxvolumeusd + txcount + generatedcoins + fees + activeaddresses + averagedifficulty + mediantxvalueusd + blocksize', data=btccopy).fit()
 print( modelPrice.summary() )
 
 #%%
-modelpredicitons = pd.DataFrame( columns=['price_ALLlm'], data= modelPrice.predict(btc)) 
+## Adjusted Model
+modelPricead = ols(formula = 'priceusd ~ txvolumeusd + adjustedtxvolumeusd + txcount + generatedcoins + fees + activeaddresses + averagedifficulty + mediantxvalueusd', data=btc).fit()
+print( modelPricead.summary() )
+
+# We have a R^2 of 95.9%, which is good, however, this linear model might overfit the data.
+
+#%%
+modelpredicitons = pd.DataFrame( columns=['price_ALLlm'], data= modelPricead.predict(btc)) 
 print(modelpredicitons.shape)
 print( modelpredicitons.head() )
 
@@ -102,7 +119,7 @@ print( modelpredicitons.head() )
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 # Get variables for which to compute VIF and add intercept term
-X = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd','blocksize']]
+X = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd']]
 X['Intercept'] = 1
 
 # Compute and view VIF
@@ -113,8 +130,27 @@ vif["VIF"] = [ variance_inflation_factor(X.values, i) for i in range(X.shape[1])
 # View results using print
 print(vif)
 
-#%%
+# Therefore, txvolume, adjustedtxvolumn, txcount and activeaddresses are highly correlated with price
+
+#%% 
+# Super Confused!!!!!!!!!!!!!!!!!!!!!Cross-Validation
 from sklearn import linear_model
+from sklearn.model_selection import cross_val_score
+
+xbtc = btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses']]
+# print(xbtc.head())
+ybtc = btc['priceusd']
+xbtcs = pd.DataFrame( scale(xbtc), columns=xbtc.columns )
+ybtcs = ybtc.copy()
+full_cv = linear_model.LinearRegression()
+cv_results = cross_val_score(full_cv, xbtc, ybtc, cv=10)
+print(cv_results) # [0.99982467 0.99014869 0.98341804 0.99957296 0.99898658]
+np.mean(cv_results) # 0.9943901862799376
+print("Accuracy: %0.2f (+/- %0.2f)" % (cv_results.mean(), cv_results.std() * 2))
+
+#%%
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(xbtc, ybtc, test_size = 0.2, random_state = 123)
 
 full_split = linear_model.LinearRegression() # new instancew
 full_split.fit(X_train, y_train)
@@ -128,25 +164,107 @@ print('coef_:', full_split.coef_)  # [ 2.52354996e-02  8.16512793e-10  6.1009965
    # -1.68412021e+02 -9.78869937e+02 -3.33673149e-02]
 
 
-#%% 
+#%%
+# Regression Tree
+import seaborn as sns
+sns.set()
+sns.pairplot(xbtcs)
+
+#%%
+from sklearn.tree import DecisionTreeRegressor  # Import DecisionTreeRegressor
+from sklearn.model_selection import train_test_split  # Import train_test_split
+from sklearn.metrics import mean_squared_error as MSE  # Import mean_squared_error as MSE
+# Split data into 80% train and 20% test
+X_train, X_test, y_train, y_test= train_test_split(xbtcs, ybtcs, test_size=0.2,random_state=1)
+# Instantiate a DecisionTreeRegressor 'regtree0'
+regtree0 = DecisionTreeRegressor(max_depth=4, min_samples_leaf=0.1,random_state=22) # set minimum leaf to contain at least 10% of data points
+# DecisionTreeRegressor(criterion='mse', max_depth=8, max_features=None,
+#     max_leaf_nodes=None, min_impurity_decrease=0.0,
+#     min_impurity_split=None, min_samples_leaf=0.13,
+#     min_samples_split=2, min_weight_fraction_leaf=0.0,
+#     presort=False, random_state=3, splitter='best')
+
+
+regtree0.fit(X_train, y_train)  # Fit regtree0 to the training set
+# Import mean_squared_error from sklearn.metrics as MSE
+from sklearn.metrics import mean_squared_error as MSE
+
+# evaluation
+y_pred = regtree0.predict(X_test)  # Compute y_pred
+mse_regtree0 = MSE(y_test, y_pred)  # Compute mse_regtree0
+rmse_regtree0 = mse_regtree0 ** (.5) # Compute rmse_regtree0
+print("Test set RMSE of regtree0: {:.2f}".format(rmse_regtree0)) # 1860.22
+
+#%%
+# Let us compare the performance with OLS
+from sklearn import linear_model
+olsbtc = linear_model.LinearRegression() 
+olsbtc.fit( X_train, y_train )
+
+y_pred_ols = olsbtc.predict(X_test)  # Predict test set labels/values
+
+mse_ols = MSE(y_test, y_pred_ols)  # Compute mse_ols
+rmse_ols = mse_ols**(0.5)  # Compute rmse_ols
+
+print('Linear Regression test set RMSE: {:.2f}'.format(rmse_ols))
+print('Regression Tree test set RMSE: {:.2f}'.format(rmse_regtree0))
+
+# %%
+
+# Compare the tree with CV
+regtree1 = DecisionTreeRegressor(max_depth=5, min_samples_leaf=0.05, random_state=1)
+
+# Evaluate the list of MSE ontained by 10-fold CV
 from sklearn.model_selection import cross_val_score
-xbtc = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'activeaddresses','blocksize']]
-# print(xbtc.head())
-ybtc = btc['priceusd']
-full_cv = linear_model.LinearRegression()
-cv_results = cross_val_score(full_cv, xbtc, ybtc, cv=10)
-print(cv_results) # [0.99982467 0.99014869 0.98341804 0.99957296 0.99898658]
-np.mean(cv_results) # 0.9943901862799376
-print("Accuracy: %0.2f (+/- %0.2f)" % (cv_results.mean(), cv_results.std() * 2))
+# Set n_jobs to -1 in order to exploit all CPU cores in computation
+MSE_CV = - cross_val_score(regtree1, X_train, y_train, cv= 10, scoring='neg_mean_squared_error', n_jobs = -1)
+regtree1.fit(X_train, y_train)  # Fit 'regtree1' to the training set
+y_predict_train = regtree1.predict(X_train)  # Predict the labels of training set
+y_predict_test = regtree1.predict(X_test)  # Predict the labels of test set
 
+print('CV RMSE:', MSE_CV.mean()**(0.5) )  #CV MSE 
+print('Training set RMSE:', MSE(y_train, y_predict_train)**(0.5) )   # Training set MSE
+print('Test set RMSE:', MSE(y_test, y_predict_test)**(0.5) )   # Test set MSE 
 
+#%% [markdown]
+#
+# #  Bias-variance tradeoff  
+# high bias: underfitting  
+# high variance: overfitting, too much complexity  
+# Generalization Error = (bias)^2 + Variance + irreducible error  
+# 
+# Solution: Use CV  
+# 
+# 1. If CV error (average of 10- or 5-fold) > training set error  
+#   - high variance
+#   - overfitting the training set
+#   - try to decrease model complexity
+#   - decrease max depth
+#   - increase min samples per leaf
+#   - get more data
+# 2. If CV error approximates the training set error, and greater than desired error
+#   - high bias
+#   - underfitting the training set
+#   - increase max depth
+#   - decrease min samples per leaf
+#   - use or gather more relevant features
 
+#%%
+# Graphing the tree
+from sklearn.tree import export_graphviz  
+  
+# export the decision tree to a tree.dot file 
+# for visualizing the plot easily anywhere 
+# import os
+# dirpath = os.getcwd() # print("current directory is : " + dirpath)
+path2add = 'd:/Download/George Washington University/Fall 2019/6103/DataMining_Project'
+filepath = os.path.join( dirpath, path2add ,'tree1')
+export_graphviz(regtree1, out_file = filepath+'.dot' , feature_names =['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses']) 
 
+# import pydot
 
-
-
-
-
+# (graph,) = pydot.graph_from_dot_file(filepath)
+# graph.write_png(filepath + '.png')
 
 
 
