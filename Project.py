@@ -17,9 +17,6 @@ bitcoin = pd.read_csv(filepath)
 fp = os.path.join( dirpath, 'bitcoin_csv.csv')
 btc = pd.read_csv(fp)
 
-#fpp = os.path.join( dirpath, 'B.csv')
-#bb = pd.read_csv(fpp)
-
 #%%
 #Data cleaning
 btc = bitcoin.dropna()
@@ -37,8 +34,6 @@ btc['pcp'] = percl
 btc= btc[btc['exchangeVolume(USD)'] != 0]
 
 btc.columns
-#%%
-#https://datahub.io/cryptocurrency/bitcoin#python
 #%%
 plt.plot(btc['txVolume(USD)'], label='totalVol')
 #plt.xlabel('txV')
@@ -67,6 +62,10 @@ XX = btc[btc.columns.difference(['date', 'marketcap(USD)','price(USD)','txVolume
 X = XX.values
 y = btc.iloc[:-1, 5:6].values
 yp = btc.iloc[:-1, -2:-1].values
+# XX.columns()
+# X.columns
+# y.columns
+# yp.columns
 
 # %%
 # Splitting the dataset into the Training set and Test set
@@ -94,6 +93,68 @@ modelPrice = ols(formula = 'priceusd ~ txvolumeusd + adjustedtxvolumeusd + txcou
 print( modelPrice.summary() )
 
 #%%
+modelpredicitons = pd.DataFrame( columns=['price_ALLlm'], data= modelPrice.predict(btc)) 
+print(modelpredicitons.shape)
+print( modelpredicitons.head() )
+
+# %%
+# VIF
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Get variables for which to compute VIF and add intercept term
+X = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd','blocksize']]
+X['Intercept'] = 1
+
+# Compute and view VIF
+vif = pd.DataFrame()
+vif["variables"] = X.columns
+vif["VIF"] = [ variance_inflation_factor(X.values, i) for i in range(X.shape[1]) ] # list comprehension
+
+# View results using print
+print(vif)
+
+#%%
+from sklearn import linear_model
+
+full_split = linear_model.LinearRegression() # new instancew
+full_split.fit(X_train, y_train)
+y_pred = full_split.predict(X_test)
+full_split.score(X_test, y_test)
+
+print('score:', full_split.score(X_test, y_test)) # 0.8585809341981796
+print('intercept:', full_split.intercept_) # -1835.62848196
+print('coef_:', full_split.coef_)  # [ 2.52354996e-02  8.16512793e-10  6.10099655e+00 -5.02771703e-05
+   # 3.80343776e+00  1.70709262e-01  3.33882792e-02  2.54640191e-03
+   # -1.68412021e+02 -9.78869937e+02 -3.33673149e-02]
+
+
+#%% 
+from sklearn.model_selection import cross_val_score
+xbtc = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'activeaddresses','blocksize']]
+# print(xbtc.head())
+ybtc = btc['priceusd']
+full_cv = linear_model.LinearRegression()
+cv_results = cross_val_score(full_cv, xbtc, ybtc, cv=10)
+print(cv_results) # [0.99982467 0.99014869 0.98341804 0.99957296 0.99898658]
+np.mean(cv_results) # 0.9943901862799376
+print("Accuracy: %0.2f (+/- %0.2f)" % (cv_results.mean(), cv_results.std() * 2))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#%%
 # Logistic Regression
 import statsmodels.api as sm  
 from statsmodels.formula.api import glm
@@ -117,8 +178,8 @@ margins = True))
 # KNN
 xpc = btc[['adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty', 'mediantxvalueusd']]
 ypc = btc['pc']
-print(type(xpc))
-print(type(ypc))
+# print(type(xpc))
+# print(type(ypc))
 
 
 # %%
@@ -276,5 +337,8 @@ yp_pred = classifier.predict(Xp_test)
 from sklearn.metrics import confusion_matrix
 cm = confusion_matrix(yp_test, yp_pred)
 cm
+
+# %%
+
 
 # %%
