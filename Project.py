@@ -34,14 +34,6 @@ btc['pcp'] = percl
 btc= btc[btc['exchangeVolume(USD)'] != 0]
 
 btc.columns
-#%%
-plt.plot(btc['txVolume(USD)'], label='totalVol')
-#plt.xlabel('txV')
-#plt.ylabel('amount')
-#filepath = os.path.join( dirpath,'hist_age.png')
-#plt.savefig(filepath)
-plt.show()
-
 
 #%% Correlation
 import seaborn as sns
@@ -54,13 +46,16 @@ plt.show()
 
 
 plt.figure(figsize=(12,9))
-plt.plot(btc['generatedCoins'].values)
+# plt.plot(btc['generatedCoins'].values)
 
 # %%
 #Get X and y variable. Y is one day late
-XX = btc[btc.columns.difference(['date', 'marketcap(USD)','price(USD)','txVolume(USD)','adjustedTxVolume(USD)','exchangeVolume(USD)','medianTxValue(USD)'])].iloc[1:,:]
+btc.columns=btc.columns.str.strip().str.lower().str.replace('(','').str.replace('U','').str.replace('S','').str.replace('D','').str.replace(')','')
+
+XX = btc[btc.columns.difference(['date', 'marketcapusd','priceusd','txVolumeusd','adjustedTxVolumeusd','exchangeVolumeusd','medianTxValueusd'])].iloc[1:,:]
 X = XX.values
 y = btc.iloc[:-1, 5:6].values
+# print(y)
 yp = btc.iloc[:-1, -2:-1].values
 # XX.columns()
 # X.columns
@@ -76,108 +71,122 @@ Xp_train, Xp_test, yp_train, yp_test = train_test_split(X, yp, test_size = 0.2, 
 # %%
 
 # Feature Scaling
-#from sklearn.preprocessing import StandardScaler
-#sc_X = StandardScaler()
-#X_train = sc_X.fit_transform(X_train)
-#X_test = sc_X.transform(X_test)
-#sc_y = StandardScaler()
+from sklearn.preprocessing import StandardScaler
+sc_X = StandardScaler()
+X_train = sc_X.fit_transform(X_train)
+X_test = sc_X.transform(X_test)
+sc_y = StandardScaler()
 #y_train = sc_y.fit_transform(y_train)
-btc.columns=btc.columns.str.strip().str.lower().str.replace('(','').str.replace('U','').str.replace('S','').str.replace('D','').str.replace(')','')
 
 btc.head()
 # xbtc = btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses']]
 # # print(xbtc.head())
 # ybtc = btc['priceusd']
 # xbtcs = pd.DataFrame( scale(xbtc), columns=xbtc.columns )
-
-btccopy = pd.DataFrame(scale(btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses',
-'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty', 'mediantxvalueusd', 'blocksize']]), columns=('txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses',
-'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty', 'mediantxvalueusd', 'blocksize'))
-btccopy.head()
-#%%
-# Linear Regression
-## Full Model
-from statsmodels.formula.api import ols
-
-modelPrice = ols(formula = 'ybtc ~ txvolumeusd + adjustedtxvolumeusd + txcount + generatedcoins + fees + activeaddresses + averagedifficulty + mediantxvalueusd + blocksize', data=btccopy).fit()
-print( modelPrice.summary() )
+# priceusd = pd.DataFrame(btc['priceusd'])
+# priceusd
 
 #%%
-## Adjusted Model
-modelPricead = ols(formula = 'priceusd ~ txvolumeusd + adjustedtxvolumeusd + txcount + generatedcoins + fees + activeaddresses + averagedifficulty + mediantxvalueusd', data=btc).fit()
-print( modelPricead.summary() )
-
-# We have a R^2 of 95.9%, which is good, however, this linear model might overfit the data.
-
-#%%
-modelpredicitons = pd.DataFrame( columns=['price_ALLlm'], data= modelPricead.predict(btc)) 
-print(modelpredicitons.shape)
-print( modelpredicitons.head() )
-
-# %%
-# VIF
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-
-# Get variables for which to compute VIF and add intercept term
-X = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd']]
-X['Intercept'] = 1
-
-# Compute and view VIF
-vif = pd.DataFrame()
-vif["variables"] = X.columns
-vif["VIF"] = [ variance_inflation_factor(X.values, i) for i in range(X.shape[1]) ] # list comprehension
-
-# View results using print
-print(vif)
-
-# Therefore, txvolume, adjustedtxvolumn, txcount and activeaddresses are highly correlated with price
-
-#%% 
-# Super Confused!!!!!!!!!!!!!!!!!!!!!Cross-Validation
 from sklearn import linear_model
-from sklearn.model_selection import cross_val_score
-
-xbtc = btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses']]
-# print(xbtc.head())
-ybtc = btc['priceusd']
-xbtcs = pd.DataFrame( scale(xbtc), columns=xbtc.columns )
-ybtcs = ybtc.copy()
-full_cv = linear_model.LinearRegression()
-cv_results = cross_val_score(full_cv, xbtc, ybtc, cv=10)
-print(cv_results) # [0.99982467 0.99014869 0.98341804 0.99957296 0.99898658]
-np.mean(cv_results) # 0.9943901862799376
-print("Accuracy: %0.2f (+/- %0.2f)" % (cv_results.mean(), cv_results.std() * 2))
-
-#%%
-from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(xbtc, ybtc, test_size = 0.2, random_state = 123)
 
 full_split = linear_model.LinearRegression() # new instancew
 full_split.fit(X_train, y_train)
 y_pred = full_split.predict(X_test)
 full_split.score(X_test, y_test)
 
-print('score:', full_split.score(X_test, y_test)) # 0.8585809341981796
-print('intercept:', full_split.intercept_) # -1835.62848196
-print('coef_:', full_split.coef_)  # [ 2.52354996e-02  8.16512793e-10  6.10099655e+00 -5.02771703e-05
-   # 3.80343776e+00  1.70709262e-01  3.33882792e-02  2.54640191e-03
-   # -1.68412021e+02 -9.78869937e+02 -3.33673149e-02]
+print(y_pred[0:5])
+
+print('score:', full_split.score(X_test, y_test)) # 0.9425689619048208
+print('intercept:', full_split.intercept_) # [2535.11953212]
+print('coef_:', full_split.coef_)  # [ 1399.60277109  1081.09477569   840.17730788   172.53603703
+                                   #  -196.81423833  1122.51188693  -456.76237218  -333.06092781
+                                   #  150.98440138   318.11769235    37.67772706     2.21087506
+                                   #  -72.91491501 -1075.72250299   244.68387439]
+
+#%%
+plt.scatter(y_test, y_pred)
+plt.xlabel('True Values')
+plt.ylabel('Predictions')
+# %%
+# VIF
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Get variables for which to compute VIF and add intercept term
+Xvif = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd', 'blocksize']]
+Xvif['Intercept'] = 1
+
+# Compute and view VIF
+vif = pd.DataFrame()
+vif["variables"] = Xvif.columns
+vif["VIF"] = [ variance_inflation_factor(Xvif.values, i) for i in range(Xvif.shape[1]) ] # list comprehension
+
+# View results using print
+print(vif)
+
+# Therefore, txvolume, adjustedtxvolumn, txcount and activeaddresses and blocksize are highly correlated with price
+
+#%%
+## Adjusted Linear Model
+xbtc = btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses', 'blocksize']]
+ybtc = btc['priceusd']
+
+Xad_train, Xad_test, yad_train, yad_test = train_test_split(xbtc, ybtc, test_size = 0.2, random_state = 1)
+
+scad_X = StandardScaler()
+Xad_train = scad_X.fit_transform(Xad_train)
+Xad_test = scad_X.transform(Xad_test)
+
+
+ad_split = linear_model.LinearRegression() # new instancew
+ad_split.fit(Xad_train, yad_train)
+yad_pred = ad_split.predict(Xad_test)
+ad_split.score(Xad_test, yad_test)
+
+print('score:', ad_split.score(Xad_test, yad_test)) # 0.8906185214311232
+print('intercept:', ad_split.intercept_) # 204.34242221557088
+print('coef_:', ad_split.coef_)  # [-2.00364500e-07  1.67363753e-06 -2.28343962e-02  1.05130901e-02 -4.24595526e-07]
+print(yad_pred[0:5])
+plt.scatter(yad_test, yad_pred)
+plt.xlabel('True Values')
+plt.ylabel('Predictions')
+
+#%% 
+# Super Confused!!!!!!!!!!!!!!!!!!!!!Cross-Validation
+from sklearn import linear_model
+from sklearn.model_selection import cross_val_score, cross_val_predict
+
+full_cv = linear_model.LinearRegression()
+cv_results = cross_val_score(full_cv, Xad_train, yad_train, cv=10)
+print(cv_results) 
+np.mean(cv_results) 
+print("Accuracy: %0.2f (+/- %0.2f)" % (cv_results.mean(), cv_results.std() * 2))
+
+ycv_pred = cross_val_predict(full_cv, Xad_train, yad_train, cv=10)
+plt.scatter(yad_train, ycv_pred)
+plt.xlabel('True Values')
+plt.ylabel('Predictions')
+
+from sklearn import metrics
+accuracy = metrics.r2_score(yad_train, ycv_pred)
+print( 'Cross-Predicted Accuracy:', accuracy)
+
+
 
 
 #%%
 # Regression Tree
-import seaborn as sns
-sns.set()
-sns.pairplot(xbtcs)
+# import seaborn as sns
+# sns.set()
+# sns.pairplot(xbtc)
 
 #%%
 from sklearn.tree import DecisionTreeRegressor  # Import DecisionTreeRegressor
 from sklearn.model_selection import train_test_split  # Import train_test_split
 from sklearn.metrics import mean_squared_error as MSE  # Import mean_squared_error as MSE
 # Split data into 80% train and 20% test
-X_train, X_test, y_train, y_test= train_test_split(xbtcs, ybtcs, test_size=0.2,random_state=1)
+#X_train, X_test, y_train, y_test= train_test_split(xbtcs, ybtcs, test_size=0.2,random_state=1)
 # Instantiate a DecisionTreeRegressor 'regtree0'
-regtree0 = DecisionTreeRegressor(max_depth=4, min_samples_leaf=0.1,random_state=22) # set minimum leaf to contain at least 10% of data points
+regtree0 = DecisionTreeRegressor(max_depth=5, min_samples_leaf=1,random_state=1) # set minimum leaf to contain at least 10% of data points
 # DecisionTreeRegressor(criterion='mse', max_depth=8, max_features=None,
 #     max_leaf_nodes=None, min_impurity_decrease=0.0,
 #     min_impurity_split=None, min_samples_leaf=0.13,
@@ -185,13 +194,13 @@ regtree0 = DecisionTreeRegressor(max_depth=4, min_samples_leaf=0.1,random_state=
 #     presort=False, random_state=3, splitter='best')
 
 
-regtree0.fit(X_train, y_train)  # Fit regtree0 to the training set
+regtree0.fit(Xad_train, yad_train)  # Fit regtree0 to the training set
 # Import mean_squared_error from sklearn.metrics as MSE
 from sklearn.metrics import mean_squared_error as MSE
 
 # evaluation
-y_pred = regtree0.predict(X_test)  # Compute y_pred
-mse_regtree0 = MSE(y_test, y_pred)  # Compute mse_regtree0
+yad_pred = regtree0.predict(Xad_test)  # Compute y_pred
+mse_regtree0 = MSE(yad_test, yad_pred)  # Compute mse_regtree0
 rmse_regtree0 = mse_regtree0 ** (.5) # Compute rmse_regtree0
 print("Test set RMSE of regtree0: {:.2f}".format(rmse_regtree0)) # 1860.22
 
@@ -199,11 +208,11 @@ print("Test set RMSE of regtree0: {:.2f}".format(rmse_regtree0)) # 1860.22
 # Let us compare the performance with OLS
 from sklearn import linear_model
 olsbtc = linear_model.LinearRegression() 
-olsbtc.fit( X_train, y_train )
+olsbtc.fit( Xad_train, yad_train )
 
-y_pred_ols = olsbtc.predict(X_test)  # Predict test set labels/values
+y_pred_ols = olsbtc.predict(Xad_test)  # Predict test set labels/values
 
-mse_ols = MSE(y_test, y_pred_ols)  # Compute mse_ols
+mse_ols = MSE(yad_test, y_pred_ols)  # Compute mse_ols
 rmse_ols = mse_ols**(0.5)  # Compute rmse_ols
 
 print('Linear Regression test set RMSE: {:.2f}'.format(rmse_ols))
@@ -212,20 +221,51 @@ print('Regression Tree test set RMSE: {:.2f}'.format(rmse_regtree0))
 # %%
 
 # Compare the tree with CV
-regtree1 = DecisionTreeRegressor(max_depth=5, min_samples_leaf=0.05, random_state=1)
+regtree1 = DecisionTreeRegressor(max_depth=3, min_samples_leaf=2, random_state=1)
 
 # Evaluate the list of MSE ontained by 10-fold CV
+
 from sklearn.model_selection import cross_val_score
 # Set n_jobs to -1 in order to exploit all CPU cores in computation
-MSE_CV = - cross_val_score(regtree1, X_train, y_train, cv= 10, scoring='neg_mean_squared_error', n_jobs = -1)
-regtree1.fit(X_train, y_train)  # Fit 'regtree1' to the training set
-y_predict_train = regtree1.predict(X_train)  # Predict the labels of training set
-y_predict_test = regtree1.predict(X_test)  # Predict the labels of test set
+MSE_CV = - cross_val_score(regtree1, Xad_train, yad_train, cv= 10, scoring='neg_mean_squared_error', n_jobs = -1)
+regtree1.fit(Xad_train, yad_train)  # Fit 'regtree1' to the training set
+y_predict_train = regtree1.predict(Xad_train)  # Predict the labels of training set
+y_predict_test = regtree1.predict(Xad_test)  # Predict the labels of test set
 
 print('CV RMSE:', MSE_CV.mean()**(0.5) )  #CV MSE 
-print('Training set RMSE:', MSE(y_train, y_predict_train)**(0.5) )   # Training set MSE
-print('Test set RMSE:', MSE(y_test, y_predict_test)**(0.5) )   # Test set MSE 
+print('Training set RMSE:', MSE(yad_train, y_predict_train)**(0.5) )   # Training set MSE
+print('Test set RMSE:', MSE(yad_test, y_predict_test)**(0.5) )   # Test set MSE 
 
+#%% Try prediction
+forecast_out = 15
+#Create another column (the target ) shifted 'n' units up
+df = btc[['priceusd']]
+df['Prediction'] = df[['priceusd']].shift(-forecast_out)
+#print the new data set
+print(df.tail())
+
+X = np.array(df.drop(['Prediction'],1))
+
+#Remove the last '30' rows
+X = X[:-forecast_out]
+print(X)
+
+y = np.array(df['Prediction'])
+# Get all of the y values except the last '30' rows
+y = y[:-forecast_out]
+print(y)
+
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = 1)
+
+lr = LinearRegression()
+lr_predict = lr.fit(x_train, y_train)
+lr_confidence = lr.score(x_test, y_test)
+print("lr confidence: ", lr_confidence)
+
+x_forecast = np.array(df.drop(['Prediction'],1))[-forecast_out:]
+print(x_forecast)
+lr_prediction = lr.predict(x_forecast)
+print(lr_prediction)
 #%% [markdown]
 #
 # #  Bias-variance tradeoff  
@@ -259,7 +299,7 @@ from sklearn.tree import export_graphviz
 # dirpath = os.getcwd() # print("current directory is : " + dirpath)
 path2add = 'd:/Download/George Washington University/Fall 2019/6103/DataMining_Project'
 filepath = os.path.join( dirpath, path2add ,'tree1')
-export_graphviz(regtree1, out_file = filepath+'.dot' , feature_names =['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses']) 
+export_graphviz(regtree1, out_file = filepath+'.dot' , feature_names =['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses', 'blocksize']) 
 
 # import pydot
 
@@ -267,140 +307,43 @@ export_graphviz(regtree1, out_file = filepath+'.dot' , feature_names =['txvolume
 # graph.write_png(filepath + '.png')
 
 
+#%%
+# Linear Regression
+## Full Model
+from statsmodels.formula.api import ols
 
-
-
-
+modelPrice = ols(formula = 'priceusd ~ txvolumeusd + adjustedtxvolumeusd + txcount + generatedcoins + fees + activeaddresses + averagedifficulty + mediantxvalueusd + blocksize', data=btc).fit()
+print( modelPrice.summary() )
 
 #%%
-# Logistic Regression
-import statsmodels.api as sm  
-from statsmodels.formula.api import glm
+## Adjusted Model
+modelPricead = ols(formula = 'priceusd ~ txvolumeusd + adjustedtxvolumeusd + txcount + generatedcoins + fees + activeaddresses + averagedifficulty + mediantxvalueusd', data=btc).fit()
+print( modelPricead.summary() )
 
-modelPriceLogit = glm(formula='pc ~ adjustedtxvolumeusd + txcount + generatedcoins + fees + activeaddresses + averagedifficulty + mediantxvalueusd', data=btc, family=sm.families.Binomial()).fit()
-print( modelPriceLogit.summary() )
-
-#%% 
-# Logistic Regression cut off
-cut_off = 0.3
-modelprediciton = pd.DataFrame( columns=['pc_AllLog'], data= modelPriceLogit.predict(btc)) 
-modelprediciton['pc'] = modelPriceLogit.predict(btc)
-
-modelprediciton['pcLogitAll'] = np.where(modelprediciton['pc_AllLog'] > cut_off, 1, 0)
-
-print(pd.crosstab(btc.pc, modelprediciton.pcLogitAll,
-rownames=['Actual'], colnames=['Predicted'],
-margins = True))
+# We have a R^2 of 95.9%, which is good, however, this linear model might overfit the data.
 
 #%%
-# KNN
-xpc = btc[['adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty', 'mediantxvalueusd']]
-ypc = btc['pc']
-# print(type(xpc))
-# print(type(ypc))
-
+modelpredicitons = pd.DataFrame( columns=['price_ALLlm'], data= modelPricead.predict(btc)) 
+print(modelpredicitons.shape)
+print( modelpredicitons.head() )
 
 # %%
-# k values
-mrroger = 3
-mrroger2 = 6
-mrroger3 = 9
+# VIF
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 
-#%%
-# unscaled When k = 3
-from sklearn.neighbors import KNeighborsClassifier
-knn = KNeighborsClassifier(n_neighbors=mrroger) # instantiate with n value given
-knn.fit(xpc,ypc)
-y_pred = knn.predict(xpc)
-print(y_pred)
-knn.score(xpc,ypc)
+# Get variables for which to compute VIF and add intercept term
+X = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd']]
+X['Intercept'] = 1
 
-import numpy as np
-knn_cv = KNeighborsClassifier(n_neighbors=mrroger) # instantiate with n value given
+# Compute and view VIF
+vif = pd.DataFrame()
+vif["variables"] = X.columns
+vif["VIF"] = [ variance_inflation_factor(X.values, i) for i in range(X.shape[1]) ] # list comprehension
 
-from sklearn.model_selection import cross_val_score
-cv_results = cross_val_score(knn_cv, xpc, ypc, cv=5)
-print(cv_results) 
-np.mean(cv_results) 
+# View results using print
+print(vif)
 
-# %%
-# unscaled When k = 6
-knn_cv = KNeighborsClassifier(n_neighbors=mrroger2) # instantiate with n value given
-cv_results = cross_val_score(knn_cv, xpc, ypc, cv=5)
-print(cv_results) 
-np.mean(cv_results) 
-
-#%%
-# scale When k = 3
-from sklearn.preprocessing import scale
-xspc = pd.DataFrame( scale(xpc), columns=xpc.columns ) 
-yspc = ypc.copy() 
-
-knn_scv = KNeighborsClassifier(n_neighbors=mrroger) 
-
-scv_results = cross_val_score(knn_scv, xspc, yspc, cv=5)
-print(scv_results) 
-np.mean(scv_results) 
-
-# %%
-# scaled When k = 6
-knn_scv = KNeighborsClassifier(n_neighbors=mrroger2) 
-
-scv_results = cross_val_score(knn_scv, xspc, yspc, cv=5)
-print(scv_results) 
-np.mean(scv_results) 
-
-#%%
-# Compare KNN with logistic regression accuracy
-from sklearn.linear_model import LogisticRegression
-lr = LogisticRegression()
-lr.fit(xspc, yspc)
-lr.score(xspc, yspc) # accuracy score
-
-# Compare with KNN, logistic regression with scaled data has 55.69% accuracy, while KNN with scaled data when k = 3 is 47.27% accuracy.
-
-#%%
-# Classification Decision Tree
-# Import DecisionTreeClassifier
-from sklearn.tree import DecisionTreeClassifier
-# Import train_test_split
-from sklearn.model_selection import train_test_split
-# Import accuracy_score
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix 
-from sklearn.metrics import classification_report
-
-# Instantiate dtree
-dtree_pc1 = DecisionTreeClassifier(max_depth=5, random_state=1)
-# Fit dt to the training set
-dtree_pc1.fit(Xp_train,yp_train)
-# Predict test set labels
-yp_pred = dtree_pc1.predict(Xp_test)
-# Evaluate test-set accuracy
-print(accuracy_score(yp_test, yp_pred))
-print(confusion_matrix(yp_test, yp_pred))
-print(classification_report(yp_test, yp_pred))
-
-#%%
-logitreg_pc1 = LogisticRegression(random_state=1)
-logitreg_pc1.fit(Xp_train, yp_train)
-
-from mlxtend.plotting import plot_decision_regions
-import matplotlib.pyplot as plt
-
-plot_decision_regions(Xp_test.values, yp_test.values, clf=logitreg_pc1, legend=3, filler_feature_values={2:1} , filler_feature_ranges={2: 3} )
-
-plt.xlabel(X_test.columns[0])
-plt.ylabel(X_test.columns[1])
-plt.title(logitreg_pc1.__class__.__name__)
-plt.show()
-
-plot_decision_regions(X_test.values, y_test.values, clf=dtree_pc1, legend=3, filler_feature_values={2:1} , filler_feature_ranges={2: 3} )
-plt.xlabel(X_test.columns[0])
-plt.ylabel(X_test.columns[1])
-plt.title(dtree_pc1.__class__.__name__)
-plt.show()
-
+# Therefore, txvolume, adjustedtxvolumn, txcount and activeaddresses are highly correlated with price
 
 #%%
 # 王芷霖previous code
@@ -453,6 +396,7 @@ yp_pred = classifier.predict(Xp_test)
 
 # Making the Confusion Matrix
 from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing.data import scale
 cm = confusion_matrix(yp_test, yp_pred)
 cm
 
