@@ -77,6 +77,7 @@ X_train = sc_X.fit_transform(X_train)
 X_test = sc_X.transform(X_test)
 sc_y = StandardScaler()
 #y_train = sc_y.fit_transform(y_train)
+#y_test = sc_y.fit_transform(y_test)
 
 btc.head()
 # xbtc = btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'activeaddresses']]
@@ -94,7 +95,7 @@ full_split.fit(X_train, y_train)
 y_pred = full_split.predict(X_test)
 full_split.score(X_test, y_test)
 
-print(y_pred[0:5])
+#print(y_pred[0:5])
 
 print('score:', full_split.score(X_test, y_test)) # 0.9425689619048208
 print('intercept:', full_split.intercept_) # [2535.11953212]
@@ -221,7 +222,7 @@ print('Regression Tree test set RMSE: {:.2f}'.format(rmse_regtree0))
 # %%
 
 # Compare the tree with CV
-regtree1 = DecisionTreeRegressor(max_depth=3, min_samples_leaf=2, random_state=1)
+regtree1 = DecisionTreeRegressor(max_depth=5, min_samples_leaf=1, random_state=1)
 
 # Evaluate the list of MSE ontained by 10-fold CV
 
@@ -236,6 +237,7 @@ print('CV RMSE:', MSE_CV.mean()**(0.5) )  #CV MSE
 print('Training set RMSE:', MSE(yad_train, y_predict_train)**(0.5) )   # Training set MSE
 print('Test set RMSE:', MSE(yad_test, y_predict_test)**(0.5) )   # Test set MSE 
 
+regtree1.score(Xad_test, yad_test)
 #%% Try prediction
 forecast_out = 15
 #Create another column (the target ) shifted 'n' units up
