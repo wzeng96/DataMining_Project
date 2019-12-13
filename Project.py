@@ -113,8 +113,10 @@ plt.ylabel('Predictions')
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 # Get variables for which to compute VIF and add intercept term
-Xvif = btc[['txvolumeusd','adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd', 'blocksize']]
+Xvif = btc[['txvolumeusd', 'adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd', 'blocksize']]
 Xvif['Intercept'] = 1
+
+# 'adjustedtxvolumeusd', 'txcount', 'generatedcoins', 'fees', 'activeaddresses', 'averagedifficulty','mediantxvalueusd', 'blocksize'
 
 # Compute and view VIF
 vif = pd.DataFrame()
@@ -345,7 +347,7 @@ vif["VIF"] = [ variance_inflation_factor(X.values, i) for i in range(X.shape[1])
 # View results using print
 print(vif)
 
-# Therefore, txvolume, adjustedtxvolumn, txcount and activeaddresses are highly correlated with price
+# Therefore, txvolume, adjustedtxvolumn, txcount and activeaddresses are highly correlated
 
 #%%
 # 王芷霖previous code
